@@ -1,13 +1,17 @@
 package com.example.nxconvert
 
 import android.Manifest
+import android.app.Activity
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.method.ScrollingMovementMethod
 import android.util.Log
 import android.widget.*
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -20,9 +24,23 @@ class MainActivity : AppCompatActivity() {
     private lateinit var outputText: TextView
     private lateinit var argsInput: EditText
     private lateinit var runButton: Button
+    private lateinit var selectFileButton: Button
+    private lateinit var selectedFileText: TextView
     private val handler = Handler(Looper.getMainLooper())
+    private var selectedFilePath: String? = null
     companion object {
         const val TAG = "NXConvert"
+    }
+
+    // Register file picker launcher
+    private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        if (uri != null) {
+            selectedFilePath = uri.path
+            selectedFileText.text = "Selected: $selectedFilePath"
+            // Auto-fill args with the file path
+            argsInput.setText(selectedFilePath)
+            Log.d(TAG, "Selected file: $selectedFilePath")
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -34,10 +52,28 @@ class MainActivity : AppCompatActivity() {
             outputText = findViewById(R.id.output_text)
             argsInput = findViewById(R.id.args_input)
             runButton = findViewById(R.id.run_button)
+            selectFileButton = findViewById(R.id.select_file_button)
+            selectedFileText = findViewById(R.id.selected_file_text)
             outputText.movementMethod = ScrollingMovementMethod()
 
             // Log device architecture for debugging
             Log.d(TAG, "Device arch: ${android.os.Build.CPU_ABI}, ${android.os.Build.CPU_ABI2}")
+            Log.d(TAG, "Files dir: ${filesDir.absolutePath}")
+
+            selectFileButton.setOnClickListener {
+                // Request storage permission first if needed
+                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
+                    != PackageManager.PERMISSION_GRANTED
+                ) {
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
+                        1
+                    )
+                    return@setOnClickListener
+                }
+                pickFile.launch("*/*")
+            }
 
             runButton.setOnClickListener {
                 if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -67,7 +103,7 @@ class MainActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Permission granted", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Storage permission granted", Toast.LENGTH_SHORT).show()
         } else {
             Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show()
         }

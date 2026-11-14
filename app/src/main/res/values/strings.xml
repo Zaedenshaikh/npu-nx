@@ -2,7 +2,7 @@
     <string name="app_name">NXConvert</string>
     <string name="button_select_file">Select File</string>
     <string name="no_file_selected">No file selected</string>
-    <string name="hint_args">nxconvert arguments (e.g. --help, or select a file above)</string>
+    <string name="hint_args">nxconvert arguments (or select a file above)</string>
     <string name="button_run">Run</string>
     <string name="initial_output">Tap Select File to choose a file, then tap Run\n</string>
 </resources>

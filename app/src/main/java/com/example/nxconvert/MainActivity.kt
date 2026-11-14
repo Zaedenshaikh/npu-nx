@@ -1,8 +1,6 @@
 package com.example.nxconvert
 
 import android.Manifest
-import android.app.Activity
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
@@ -18,7 +16,7 @@ import androidx.core.content.ContextCompat
 import java.io.BufferedReader
 import java.io.File
 import java.io.FileOutputStream
-import java.io.InputStreamReader
+import java.io.InputStream
 
 class MainActivity : AppCompatActivity() {
     private lateinit var outputText: TextView
@@ -27,19 +25,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var selectFileButton: Button
     private lateinit var selectedFileText: TextView
     private val handler = Handler(Looper.getMainLooper())
-    private var selectedFilePath: String? = null
+    private var selectedFileUri: Uri? = null
     companion object {
         const val TAG = "NXConvert"
     }
 
-    // Register file picker launcher
+    // Register file picker launcher — no storage permission needed for GetContent
     private val pickFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         if (uri != null) {
-            selectedFilePath = uri.path
-            selectedFileText.text = "Selected: $selectedFilePath"
-            // Auto-fill args with the file path
-            argsInput.setText(selectedFilePath)
-            Log.d(TAG, "Selected file: $selectedFilePath")
+            selectedFileUri = uri
+            selectedFileText.text = "Selected: ${uri.lastPathSegment ?: uri.toString()}"
+            // Auto-fill args with the URI string
+            argsInput.setText(uri.toString())
+            Log.d(TAG, "Selected file URI: $uri")
         }
     }
 
@@ -56,39 +54,36 @@ class MainActivity : AppCompatActivity() {
             selectedFileText = findViewById(R.id.selected_file_text)
             outputText.movementMethod = ScrollingMovementMethod()
 
-            // Log device architecture for debugging
             Log.d(TAG, "Device arch: ${android.os.Build.CPU_ABI}, ${android.os.Build.CPU_ABI2}")
             Log.d(TAG, "Files dir: ${filesDir.absolutePath}")
 
             selectFileButton.setOnClickListener {
-                // Request storage permission first if needed
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED
-                ) {
-                    ActivityCompat.requestPermissions(
-                        this,
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                        1
-                    )
-                    return@setOnClickListener
-                }
+                // GetContent doesn't need storage permissions — system picker handles access
                 pickFile.launch("*/*")
             }
 
             runButton.setOnClickListener {
-                if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED
-                ) {
-                    ActivityCompat.requestPermissions(
-                        this,
-                        arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
-                        1
-                    )
+                val raw = argsInput.text.toString().trim()
+                if (raw.isEmpty()) {
+                    Toast.makeText(this, "Enter arguments or select a file first", Toast.LENGTH_SHORT).show()
                     return@setOnClickListener
                 }
-                val raw = argsInput.text.toString().trim()
-                val args = if (raw.isEmpty()) emptyList() else raw.split(" ").filter { it.isNotEmpty() }
-                runNxconvert(args.toTypedArray())
+
+                // If the arg looks like a content URI, copy it to internal storage first
+                val resolvedArgs = if (raw.startsWith("content://")) {
+                    copyContentUriToFile(Uri.parse(raw)).let { file ->
+                        if (file != null) listOf(file.absolutePath) else emptyList()
+                    }
+                } else {
+                    listOf(raw)
+                }
+
+                if (resolvedArgs.isEmpty()) {
+                    Toast.makeText(this, "Could not access selected file", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                runNxconvert(resolvedArgs.toTypedArray())
             }
         } catch (e: Exception) {
             Log.e(TAG, "onCreate crashed", e)
@@ -96,16 +91,19 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == 1 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(this, "Storage permission granted", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Storage permission denied", Toast.LENGTH_SHORT).show()
+    private fun copyContentUriToFile(uri: Uri): File? {
+        return try {
+            val dest = File(filesDir, "selected_file")
+            contentResolver.openInputStream(uri)?.use { input ->
+                FileOutputStream(dest).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            Log.d(TAG, "Copied content URI to: ${dest.absolutePath}")
+            dest
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to copy content URI", e)
+            null
         }
     }
 

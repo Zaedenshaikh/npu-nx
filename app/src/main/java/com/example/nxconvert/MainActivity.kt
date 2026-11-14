@@ -21,7 +21,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var argsInput: EditText
     private lateinit var runButton: Button
     private val handler = Handler(Looper.getMainLooper())
-    private static val TAG = "NXConvert"
+    companion object {
+        const val TAG = "NXConvert"
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

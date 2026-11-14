@@ -50,10 +50,15 @@ jobs:
     - name: Configure Rust linker for Android
       run: |
         NDK_DIR="$ANDROID_HOME/ndk/27.0.12077973"
+        echo "ANDROID_NDK_HOME=$NDK_DIR" >> $GITHUB_ENV
         NDK_CLANG="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
         NDK_AR="$NDK_DIR/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+        ls -la "$NDK_CLANG" "$NDK_AR"
         mkdir -p cli/.cargo
         printf '[target.aarch64-linux-android]\nlinker = "%s"\nar = "%s"\n' "$NDK_CLANG" "$NDK_AR" > cli/.cargo/config.toml
+        echo "CC_aarch64_linux_android=$NDK_CLANG" >> $GITHUB_ENV
+        echo "AR_aarch64_linux_android=$NDK_AR" >> $GITHUB_ENV
+        echo "CFLAGS_aarch64_linux_android=-target aarch64-linux-android34" >> $GITHUB_ENV
 
     - name: Build Rust CLI for Android
       working-directory: ./cli

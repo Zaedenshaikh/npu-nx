@@ -1,0 +1,15 @@
+[package]
+name = "nxconvert-cli"
+version = "1.0.3"
+edition = "2021"
+
+[[bin]]
+name = "nxconvert"
+path = "src/main.rs"
+
+[dependencies]
+nxformat-packer = { path = "../packer" }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"

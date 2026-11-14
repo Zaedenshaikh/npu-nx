@@ -1,0 +1,64 @@
+name: Android Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/checkout@v4
+      with:
+        repository: Zaedenshaikh/nxformat-packer
+        path: packer
+
+    - name: Install Android SDK and NDK
+      uses: android-actions/setup-android@v3
+      with:
+        ndk: 27.0.12077973
+
+    - name: Install Rust toolchain with Android target
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: aarch64-linux-android
+
+    - name: Configure Rust linker for Android
+      run: |
+        NDK_CLANG="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android34-clang"
+        NDK_AR="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-ar"
+        echo "CC_aarch64_linux_android=$NDK_CLANG" >> $GITHUB_ENV
+        echo "AR_aarch64_linux_android=$NDK_AR" >> $GITHUB_ENV
+        echo "CFLAGS_aarch64_linux_android=-target aarch64-linux-android34" >> $GITHUB_ENV
+
+    - name: Build Rust CLI for Android
+      working-directory: ./cli
+      run: cargo build --release --target aarch64-linux-android
+
+    - name: Copy Rust binary to Android assets
+      run: |
+        mkdir -p app/src/main/assets
+        cp cli/target/aarch64-linux-android/release/nxconvert app/src/main/assets/nxconvert
+
+    - name: Make gradlew executable
+      run: chmod +x gradlew
+
+    - name: Build Debug APK
+      env:
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        ANDROID_SDK_ROOT: ${{ env.ANDROID_HOME }}
+      run: ./gradlew assembleDebug
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: nxconvert-debug.apk
+        path: app/build/outputs/apk/debug/app-debug.apk

@@ -16,6 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+      with:
+        repository: Zaedenshaikh/nxformat-packer
+        path: packer
     - name: Build
       run: cargo build --verbose
     - name: Run tests

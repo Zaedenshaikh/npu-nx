@@ -12,7 +12,7 @@ name = "nxconvert"
 path = "src/main.rs"
 
 [dependencies]
-nxformat-packer = { path = "../packer" }
+nxformat-packer = { path = "packer" }
 eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 rfd = "0.17"
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png"] }
